@@ -1,4 +1,4 @@
-# **Liver cirrhosis - Prediction Model**
+# **Liver Cirrhosis - Prediction Model**
 
 Liver cirrhosis is a fatal condition, as there is no cure to it. Liver cirrhosis is the scrring of the liver usually caused by long-term liver damage. Due to the 
 scarring, the liver cannot function properly and can lead more complications such as: infection, electrolyte deficiencies and bleeding.
