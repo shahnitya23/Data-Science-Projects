@@ -51,11 +51,29 @@ plt.figure(figsize = (20, 16))
 sns.heatmap(df.corr(), annot = True, cmap = 'BrBG')
 
 
+# ### **Z-Score**
+# 
+# To understand how the numerical data deviates from the mean. Z-score is a numerical measurement that describes a value's relationship to the mean of a group of values. If the z-score is 0 - data point's score is identical to the mean score. 
+# 
+# Given that this data is relatively small, I am trying to keep as many data points. Hence, I will not be removing too many dataset values (unless null for a column wherein I cannot replace it by a rolling mean or another value).
+
+# In[6]:
+
+
+numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
+
+num_df = df.select_dtypes(include = numerics)
+
+df_zscore = (num_df - num_df.mean())/num_df.std()
+
+df_zscore
+
+
 # ### **Data Preprocessing**
 
 # #### Getting Rid of Columns Not Needed
 
-# In[6]:
+# In[7]:
 
 
 df = df.drop('ID', axis = 1)
@@ -63,8 +81,10 @@ df
 
 
 # #### Getting Rid of Rows with NaN in Column Drug
+# 
+# I will be removing the Null Drug data points as I cannot predict the whether D-penicillamine or placebo was admistered to the patient.
 
-# In[7]:
+# In[8]:
 
 
 df = df.dropna(subset = 'Drug')
@@ -73,7 +93,7 @@ df
 
 # ### **Adding a Rolling Average to Fill in the NaN**
 
-# In[8]:
+# In[9]:
 
 
 from sklearn.impute import SimpleImputer
@@ -86,7 +106,7 @@ df.iloc[:, 10:-1] = filled_nan.transform(df.iloc[:, 10:-1])
 df
 
 
-# In[9]:
+# In[10]:
 
 
 df.isnull().sum()
@@ -94,7 +114,7 @@ df.isnull().sum()
 
 # ### **Determining the Age from the N_Days Column**
 
-# In[10]:
+# In[11]:
 
 
 df['Age'] = (df['Age'] / 365).round()
@@ -103,7 +123,7 @@ df
 
 # ### **One Hot Encoding Categorical Columns**
 
-# In[11]:
+# In[12]:
 
 
 # Categorical data columns
@@ -114,7 +134,7 @@ df_ohe = pd.get_dummies(df, columns = categorical_cols)
 df_ohe
 
 
-# In[12]:
+# In[13]:
 
 
 df_ohe.columns
@@ -122,13 +142,13 @@ df_ohe.columns
 
 # ### **Encoding the Status (Dependent) into A Column**
 
-# In[13]:
+# In[14]:
 
 
 df_ohe['Status'].unique()
 
 
-# In[14]:
+# In[15]:
 
 
 encoded_status = []
@@ -149,7 +169,7 @@ df_ohe
 
 # ### **Splitting the Dataset into Independent and Dependent Variables**
 
-# In[15]:
+# In[16]:
 
 
 X = df_ohe.drop(['Status'], axis = 1)
@@ -158,7 +178,7 @@ y = df_ohe['Status']
 
 # ### **Split the Dataset into Train and Test Datasets**
 
-# In[16]:
+# In[17]:
 
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20, random_state = 150)
@@ -166,13 +186,13 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20, rand
 
 # ### **View Training Datasets**
 
-# In[17]:
+# In[18]:
 
 
 X_train
 
 
-# In[18]:
+# In[19]:
 
 
 y_train
@@ -180,13 +200,13 @@ y_train
 
 # ### **View the Testing Datasets**
 
-# In[19]:
+# In[20]:
 
 
 X_test
 
 
-# In[20]:
+# In[21]:
 
 
 y_test
@@ -194,27 +214,24 @@ y_test
 
 # ### **XGBoost**
 
-# In[21]:
-
-
-# from sklearn.preprocessing import LabelEncoder
-
-# le = LabelEncoder() # Encode target labels with value between 0 and n_classes - 1
-# y_train_xg = le.fit_transform(y_train.copy())
-
-
 # In[22]:
 
 
 from xgboost import XGBClassifier
-from sklearn.model_selection import KFold
+from sklearn.model_selection import StratifiedKFold
+
+'''
+KFold is a cross-validator that divides the dataset into k folds.
+Stratified is to ensure that each fold of dataset has the same proportion of observations with a given label.
+'''
+
 from sklearn.model_selection import cross_val_score
 
 xgbc = XGBClassifier()
 
 xgbc.fit(X_train.copy(), y_train.copy())
-kfold = KFold(n_splits = 8)
-xgbc_scores = cross_val_score(estimator = xgbc, X = X_train.copy(), y = y_train.copy(), cv = kfold)
+skfold = StratifiedKFold(n_splits = 8)
+xgbc_scores = cross_val_score(estimator = xgbc, X = X_train.copy(), y = y_train.copy(), cv = skfold)
 xgbc_scores
 
 
@@ -257,8 +274,8 @@ from sklearn.ensemble import RandomForestClassifier
 rf = RandomForestClassifier(n_estimators = 100, criterion = "entropy")
 
 rf.fit(X_train.copy(), y_train.copy())
-
-rf_scores = cross_val_score(estimator = rf, X = X_train.copy(), y = y_train.copy(), cv = 8)
+skfold = StratifiedKFold(n_splits = 8)
+rf_scores = cross_val_score(estimator = rf, X = X_train.copy(), y = y_train.copy(), cv = skfold)
 rf_scores
 
 
@@ -279,7 +296,7 @@ y_pred_rf
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 
-cm_rf = confusion_matrix(y_test,y_pred_rf) 
+cm_rf = confusion_matrix(y_test, y_pred_rf) 
 sns.heatmap(cm_rf, annot = True)
 
 
@@ -302,5 +319,20 @@ print(f"XGBoost Mean Score : {mean_absolute_error(y_test, y_pred_xg)}")
 print(f"XGBoost Accuracy : {xgbc_scores.mean() * 100} %\n")
 
 print(f"Random Forest Mean Score : {mean_absolute_error(y_test, y_pred_rf)}")
-print(f"Random Forest Accuracy : {rf_scores.mean()*100} %\n")
+print(f"Random Forest Accuracy : {rf_scores.mean() * 100} %\n")
+
+
+# In[31]:
+
+
+from sklearn.metrics import classification_report
+
+print('\nXGBoost Classification Report: \n', classification_report(y_test, y_pred_xg))
+print('\nRandom Forest Classification Report: \n', classification_report(y_test, y_pred_rf))
+
+
+# In[ ]:
+
+
+
 
